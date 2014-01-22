@@ -1,3 +1,0 @@
-[submodule "vendor/SocketRocket"]
-	path = vendor/SocketRocket
-	url = git://github.com/snej/SocketRocket.git
