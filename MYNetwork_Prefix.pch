@@ -1,0 +1,13 @@
+//
+// Prefix header for all source files of the 'MYNetwork' target in the 'MYNetwork' project
+//
+
+#ifdef __APPLE__
+  #include "TargetConditionals.h"
+#endif
+ 
+#define iOS_SYSTEM_VERSION_EQUAL_TO(v)                 NO
+#define iOS_SYSTEM_VERSION_GREATER_THAN(v)             NO
+#define iOS_SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(v) NO
+#define iOS_SYSTEM_VERSION_LESS_THAN(v)                NO
+#define iOS_SYSTEM_VERSION_LESS_THAN_OR_EQUAL_TO(v)    NO

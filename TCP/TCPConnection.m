@@ -138,6 +138,19 @@ static NSMutableArray *sAllConnections;
     return self;
 }    
 
+- (id) initIncomingFromInputStream: (NSInputStream*)inputStream
+                      outputStream: (NSOutputStream*)outputStream
+                          listener: (TCPListener*)listener
+{
+    self = [self _initWithAddress: nil
+                      inputStream: inputStream
+                     outputStream: outputStream];
+    if( self ) {
+        _isIncoming = YES;
+        _server = listener;
+    }
+    return self;
+}
 
 - (void) dealloc
 {

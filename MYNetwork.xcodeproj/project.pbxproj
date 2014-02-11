@@ -26,6 +26,8 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		0DDC8BC618AA680C00CB3D1E /* MYNetwork_Prefix.pch in Headers */ = {isa = PBXBuildFile; fileRef = 0DDC8BC518AA680C00CB3D1E /* MYNetwork_Prefix.pch */; };
+		0DDC8BC718AA692800CB3D1E /* MYNetwork_iPhone_Prefix.pch in Headers */ = {isa = PBXBuildFile; fileRef = 27F87B6715577C1A00F0A416 /* MYNetwork_iPhone_Prefix.pch */; };
 		270461130DE49030003D9D3F /* BLIPConnection.m in Sources */ = {isa = PBXBuildFile; fileRef = 270460F40DE49030003D9D3F /* BLIPConnection.m */; };
 		270461140DE49030003D9D3F /* BLIPDispatcher.m in Sources */ = {isa = PBXBuildFile; fileRef = 270460F60DE49030003D9D3F /* BLIPDispatcher.m */; };
 		270461150DE49030003D9D3F /* BLIPMessage.m in Sources */ = {isa = PBXBuildFile; fileRef = 270460F90DE49030003D9D3F /* BLIPMessage.m */; };
@@ -306,6 +308,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		0DDC8BC518AA680C00CB3D1E /* MYNetwork_Prefix.pch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MYNetwork_Prefix.pch; sourceTree = "<group>"; };
 		270460F30DE49030003D9D3F /* BLIPConnection.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BLIPConnection.h; sourceTree = "<group>"; };
 		270460F40DE49030003D9D3F /* BLIPConnection.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BLIPConnection.m; sourceTree = "<group>"; };
 		270460F50DE49030003D9D3F /* BLIPDispatcher.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BLIPDispatcher.h; sourceTree = "<group>"; };
@@ -516,6 +519,7 @@
 				2710C56E175510DB00CA10BF /* Frameworks */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
 			);
+			indentWidth = 4;
 			name = MYNetwork;
 			sourceTree = "<group>";
 		};
@@ -559,6 +563,7 @@
 				278C1B9D0F9F92D600954AE1 /* Bonjour */,
 				270461070DE49030003D9D3F /* TCP */,
 				270460F10DE49030003D9D3F /* BLIP */,
+				0DDC8BC518AA680C00CB3D1E /* MYNetwork_Prefix.pch */,
 			);
 			indentWidth = 4;
 			name = MYNetwork;
@@ -808,6 +813,7 @@
 				273B457B0FA681EE00276298 /* MYBonjourRegistration.h in Headers */,
 				275E8FBB1709EF830008F577 /* CollectionUtils.h in Headers */,
 				275E8FBF1709EF830008F577 /* ConcurrentOperation.h in Headers */,
+				0DDC8BC618AA680C00CB3D1E /* MYNetwork_Prefix.pch in Headers */,
 				275E8FC31709EF830008F577 /* ExceptionUtils.h in Headers */,
 				275E8FC71709EF830008F577 /* Logging.h in Headers */,
 				275E8FE71709EF830008F577 /* MYUtilities_Prefix.pch in Headers */,
@@ -831,6 +837,7 @@
 				275E8FBC1709EF830008F577 /* CollectionUtils.h in Headers */,
 				275E8FC01709EF830008F577 /* ConcurrentOperation.h in Headers */,
 				275E8FC41709EF830008F577 /* ExceptionUtils.h in Headers */,
+				0DDC8BC718AA692800CB3D1E /* MYNetwork_iPhone_Prefix.pch in Headers */,
 				275E8FC81709EF830008F577 /* Logging.h in Headers */,
 				275E8FE81709EF830008F577 /* MYUtilities_Prefix.pch in Headers */,
 				275E8FEA1709EF830008F577 /* Target.h in Headers */,
@@ -1422,6 +1429,8 @@
 				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				CLANG_ENABLE_OBJC_ARC = YES;
 				GCC_ENABLE_OBJC_GC = unsupported;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = MYNetwork_Prefix.pch;
 				INSTALL_PATH = /usr/local/lib;
 				PRODUCT_NAME = MYNetwork;
 			};
@@ -1433,6 +1442,8 @@
 				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				CLANG_ENABLE_OBJC_ARC = YES;
 				GCC_ENABLE_OBJC_GC = unsupported;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = MYNetwork_Prefix.pch;
 				INSTALL_PATH = /usr/local/lib;
 				PRODUCT_NAME = MYNetwork;
 			};
@@ -1450,6 +1461,7 @@
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = iPhone/MYNetwork_iPhone_Prefix.pch;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
@@ -1473,6 +1485,7 @@
 				DSTROOT = /tmp/MYNetwork.dst;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = iPhone/MYNetwork_iPhone_Prefix.pch;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
@@ -1577,6 +1590,7 @@
 				2710C580175510DC00CA10BF /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		275E900A1709F3DC0008F577 /* Build configuration list for PBXAggregateTarget "All" */ = {
 			isa = XCConfigurationList;

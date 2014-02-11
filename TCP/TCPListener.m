@@ -86,6 +86,7 @@ static void TCPListenerAcceptCallBack(CFSocketRef socket, CFSocketCallBackType t
 
 @synthesize port=_port, useIPv6=_useIPv6,
             bonjourServiceType=_bonjourServiceType, bonjourServiceOptions=_bonjourServiceOptions,
+            bonjourIncludesPeerToPeer=_bonjourIncludesPeerToPeer,
             bonjourPublished=_bonjourPublished, bonjourError=_bonjourError,
             bonjourService=_netService,
             pickAvailablePort=_pickAvailablePort;
@@ -299,6 +300,10 @@ static void TCPListenerAcceptCallBack(CFSocketRef socket, CFSocketCallBackType t
             [_netService setDelegate:self];
             if( _bonjourTXTRecord )
                 [self _updateTXTRecord];
+            #if TARGET_OS_IPHONE
+            if (iOS_SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"7.0"))
+              [_netService setIncludesPeerToPeer:_bonjourIncludesPeerToPeer];
+            #endif
             [_netService publishWithOptions: _bonjourServiceOptions];
         } else {
             self.bonjourError = -1;
@@ -330,6 +335,14 @@ static void TCPListenerAcceptCallBack(CFSocketRef socket, CFSocketCallBackType t
     }
 }
 
+- (void) setBonjourIncludesPeerToPeer: (BOOL)p2p
+{
+    _bonjourIncludesPeerToPeer = p2p;
+    #if TARGET_OS_IPHONE
+    if( _netService && iOS_SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"7.0"))
+      [_netService setIncludesPeerToPeer:p2p];
+    #endif
+}
 
 - (NSDictionary*) bonjourTXTRecord
 {
@@ -381,6 +394,34 @@ static void TCPListenerAcceptCallBack(CFSocketRef socket, CFSocketCallBackType t
     _netService = nil;
 }
 
+- (void)netService:(NSNetService *)sender
+  didAcceptConnectionWithInputStream:(NSInputStream *)inputStream
+  outputStream:(NSOutputStream *)outputStream
+{
+    if( _netService != sender ) {
+        return;
+    }
+  
+    if( [_delegate respondsToSelector: @selector(listener:shouldAcceptConnectionFrom:)]
+       && ! [_delegate listener: self shouldAcceptConnectionFrom: nil] ) {
+        return;
+    }
+  
+    Assert(_connectionClass);
+    TCPConnection *conn = [[self.connectionClass alloc] initIncomingFromInputStream: inputStream
+                                                                       outputStream: outputStream
+                                                                           listener: self];
+  
+    if( ! conn )
+        return;
+    
+    if( _sslProperties ) {
+        conn.SSLProperties = _sslProperties;
+        [conn setSSLProperty: $true forKey: (id)kCFStreamSSLIsServer];
+    }
+    [conn open];
+    [self tellDelegate: @selector(listener:didAcceptConnection:) withObject: conn];
+}
 
 @end
 
