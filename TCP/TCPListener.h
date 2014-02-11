@@ -80,6 +80,9 @@
 /** Options to use when publishing the Bonjour service. */
 @property NSNetServiceOptions bonjourServiceOptions;
 
+/** Option to enable peer to peer bonjour (iOS7/OSX10.9 and above). */
+@property (nonatomic) BOOL bonjourIncludesPeerToPeer;
+
 /** The dictionary form of the Bonjour TXT record: metadata about the service that can be browsed
     by peers. Changes to this dictionary will be pushed in near-real-time to interested peers. */
 @property (copy) NSDictionary *bonjourTXTRecord;

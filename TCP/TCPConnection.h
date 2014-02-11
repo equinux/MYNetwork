@@ -44,6 +44,13 @@ typedef enum {
     You don't usually need to call this; TCPListener does it automatically. */
 - (id) initIncomingFromSocket: (CFSocketNativeHandle)socket listener: (TCPListener*)listener;
 
+/** Initializes a TCPConnection from with an incomping input and output stream.
+    You don't usually need to call this; TCPListener does it automatically for
+    Incoming Bonjour Connections with >=iOS7/OSX10.9 peer to peer connectivity. */
+- (id) initIncomingFromInputStream: (NSInputStream*)inputStream
+                      outputStream: (NSOutputStream*)outputStream
+                          listener: (TCPListener*)listener;
+
 /** Timeout for waiting to open a connection. (Default is zero, meaning the OS default timeout.) */
 @property NSTimeInterval openTimeout;
 
