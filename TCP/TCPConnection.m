@@ -399,6 +399,7 @@ static NSMutableArray *sAllConnections;
 - (void) _streamGotEOF: (TCPStream*)stream
 {
     LogTo(TCP,@"%@ got EOF on %@",self,stream);
+    MYDeferDealloc(self);
     [stream disconnect];
     if( _status == kTCP_Closing ) {
         [self _streamCanClose: stream];

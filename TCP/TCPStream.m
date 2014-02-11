@@ -118,6 +118,7 @@ static NSError* fixStreamError( NSError *error );
         _stream = nil;
     }
     if( _conn ) {
+        MYDeferDealloc(self);
         [_conn _streamDisconnected: self];
         _conn = nil;
     }
