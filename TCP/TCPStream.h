@@ -15,6 +15,9 @@
 #if (defined(MAC_OS_X_VERSION_10_6) && MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_6) || defined (TARGET_OS_IPHONE)
                                 <NSStreamDelegate>
 #endif
+{
+	BOOL _to_IsHandlingEvent; // 2014-03-14 CZ: Added to catch handlers that don't return immediately
+}
 
 - (id) initWithConnection: (TCPConnection*)conn stream: (NSStream*)stream;
 
@@ -94,3 +97,4 @@
     This method always returns NO, so you can "return [self _gotError: e]". */
 - (BOOL) _gotError: (NSError*)error;
 @end
+

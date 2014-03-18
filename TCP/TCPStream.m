@@ -201,20 +201,33 @@ static NSError* fixStreamError( NSError *error );
 - (void) stream: (NSStream*)stream handleEvent: (NSStreamEvent)streamEvent 
 {
     MYDeferDealloc(self);  // don't let me be dealloced during this
+	
+	// 2014-03-14 CZ: You must prevent handlers from being called recursively.
+	// Do not let your own message handling code start a run loop while this
+	// method is still on the stack. Instead, become asynchronous and use
+	// -[BLIPRequest deferResponse] if you need to respond to a request after
+	// you're done.
+	NSParameterAssert(!_to_IsHandlingEvent);
+	_to_IsHandlingEvent = YES;
+	
     switch(streamEvent) {
         case NSStreamEventOpenCompleted:
             LogTo(TCPVerbose,@"%@ opened",self);
             [self _opened];
             break;
         case NSStreamEventHasBytesAvailable:
-            if( ! [_conn _streamPeerCertAvailable: self] )
+            if( ! [_conn _streamPeerCertAvailable: self] ) {
+				_to_IsHandlingEvent = NO;
                 return;
+			}
             LogTo(TCPVerbose,@"%@ can read",self);
             [self _canRead];
             break;
         case NSStreamEventHasSpaceAvailable:
-            if( ! [_conn _streamPeerCertAvailable: self] )
+            if( ! [_conn _streamPeerCertAvailable: self] ) {
+				_to_IsHandlingEvent = NO;
                 return;
+			}
             LogTo(TCPVerbose,@"%@ can write",self);
             [self _canWrite];
             break;
@@ -234,6 +247,8 @@ static NSError* fixStreamError( NSError *error );
     // If I was previously asked to close, try again in case I'm no longer busy
     if( _shouldClose )
         [self close];
+
+	_to_IsHandlingEvent = NO;
 }
 
 
@@ -311,3 +326,4 @@ static NSError* fixStreamError( NSError *error )
  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF 
  THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
