@@ -1,6 +1,6 @@
 Pod::Spec.new do |spec|
   spec.name                   = 'MYNetwork'
-  spec.version                = '1.2.1'
+  spec.version                = '1.2.3'
   spec.summary                = "Mooseyard Networking library."
   spec.homepage               = "https://github.com/equinux/MYNetwork"
   spec.author                 = { "Jens Alfke" => "@snej" }

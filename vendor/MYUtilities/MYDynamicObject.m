@@ -57,18 +57,19 @@ NS_INLINE NSString *getterKey(SEL sel) {
 }
 
 // converts a setter selector, of the form "set<Key>:" to an NSString of the form @"<key>".
-NS_INLINE NSString *setterKey(SEL sel) {
+NS_INLINE NSString *setterKey(SEL sel, BOOL upperCase) {
     const char* name = sel_getName(sel) + 3; // skip past 'set'
     size_t length = strlen(name);
     char buffer[1 + length];
     strcpy(buffer, name);
-    buffer[0] = (char)tolower(buffer[0]);  // lowercase the property name
+    if (!upperCase)
+        buffer[0] = (char)tolower(buffer[0]);  // lowercase the property name
     buffer[length - 1] = '\0';       // and remove the ':'
     return [NSString stringWithUTF8String:buffer];
 }
 
 + (NSString*) getterKey: (SEL)sel   {return getterKey(sel);}
-+ (NSString*) setterKey: (SEL)sel   {return setterKey(sel);}
++ (NSString*) setterKey: (SEL)sel   {return setterKey(sel, NO);}
 
 
 
@@ -89,7 +90,7 @@ static id getIdProperty(MYDynamicObject *self, SEL _cmd) {
 }
 
 static void setIdProperty(MYDynamicObject *self, SEL _cmd, id value) {
-    NSString* property = setterKey(_cmd);
+    NSString* property = setterKey(_cmd, NO);
     BOOL result = [self setValue: value ofProperty: property];
     NSCAssert(result, @"Property %@.%@ is not settable", [self class], property);
 }
@@ -100,6 +101,46 @@ static int getIntProperty(MYDynamicObject *self, SEL _cmd) {
 
 static void setIntProperty(MYDynamicObject *self, SEL _cmd, int value) {
     setIdProperty(self, _cmd, [NSNumber numberWithInt:value]);
+}
+
+static unsigned int getIntProperty(MYDynamicObject *self, SEL _cmd) {
+    return [getIdProperty(self,_cmd) unsignedIntValue];
+}
+
+static void setUnsignedIntProperty(MYDynamicObject *self, SEL _cmd, unsigned int value) {
+    setIdProperty(self, _cmd, [NSNumber numberWithUnsignedInt:value]);
+}
+
+static long getLongProperty(MYDynamicObject *self, SEL _cmd) {
+    return [getIdProperty(self,_cmd) longValue];
+}
+
+static void setLongProperty(MYDynamicObject *self, SEL _cmd, long value) {
+    setIdProperty(self, _cmd, [NSNumber numberWithLong:value]);
+}
+
+static unsigned long getUnsignedLongProperty(MYDynamicObject *self, SEL _cmd) {
+    return [getIdProperty(self,_cmd) unsignedLongValue];
+}
+
+static void setUnsignedLongProperty(MYDynamicObject *self, SEL _cmd, unsigned long value) {
+    setIdProperty(self, _cmd, [NSNumber numberWithUnsignedLong:value]);
+}
+
+static long long getLongProperty(MYDynamicObject *self, SEL _cmd) {
+    return [getIdProperty(self,_cmd) longLongValue];
+}
+
+static void setLongLongProperty(MYDynamicObject *self, SEL _cmd, long long value) {
+    setIdProperty(self, _cmd, [NSNumber numberWithLongLong:value]);
+}
+
+static unsigned long long getUnsignedLongProperty(MYDynamicObject *self, SEL _cmd) {
+    return [getIdProperty(self,_cmd) unsignedLongLongValue];
+}
+
+static void setUnsignedLongProperty(MYDynamicObject *self, SEL _cmd, unsigned long long value) {
+    setIdProperty(self, _cmd, [NSNumber numberWithUnsignedLongLong:value]);
 }
 
 static bool getBoolProperty(MYDynamicObject *self, SEL _cmd) {
@@ -117,6 +158,15 @@ static double getDoubleProperty(MYDynamicObject *self, SEL _cmd) {
 
 static void setDoubleProperty(MYDynamicObject *self, SEL _cmd, double value) {
     setIdProperty(self, _cmd, [NSNumber numberWithDouble:value]);
+}
+
+static float getFloatProperty(MYDynamicObject *self, SEL _cmd) {
+    id number = getIdProperty(self,_cmd);
+    return number ?[number floatValue] :0.0;
+}
+
+static void setFloatProperty(MYDynamicObject *self, SEL _cmd, float value) {
+    setIdProperty(self, _cmd, [NSNumber numberWithFloat:value]);
 }
 
 #endif // USE_BLOCKS
@@ -152,7 +202,7 @@ static void setDoubleProperty(MYDynamicObject *self, SEL _cmd, double value) {
 
 
 // Look up the encoded type of a property, and whether it's settable or readonly
-static const char* getPropertyType(objc_property_t property, BOOL *outIsSettable) {
+static const char* MYGetPropertyType(objc_property_t property, BOOL *outIsSettable) {
     *outIsSettable = YES;
     const char *result = "@";
     
@@ -179,11 +229,11 @@ static const char* getPropertyType(objc_property_t property, BOOL *outIsSettable
 
 
 // Look up a class's property by name, and find its type and which class declared it
-static BOOL getPropertyInfo(Class cls, 
-                            NSString *propertyName, 
-                            BOOL setter,
-                            Class *declaredInClass,
-                            const char* *propertyType) {
+BOOL MYGetPropertyInfo(Class cls,
+                     NSString *propertyName,
+                     BOOL setter,
+                     Class *declaredInClass,
+                     const char* *propertyType) {
     // Find the property declaration:
     const char *name = [propertyName UTF8String];
     objc_property_t property = class_getProperty(cls, name);
@@ -204,7 +254,7 @@ static BOOL getPropertyInfo(Class cls,
     
     // Get the property's type:
     BOOL isSettable;
-    *propertyType = getPropertyType(property, &isSettable);
+    *propertyType = MYGetPropertyType(property, &isSettable);
     if (setter && !isSettable) {
         // Asked for a setter, but property is readonly:
         *propertyType = NULL;
@@ -214,7 +264,7 @@ static BOOL getPropertyInfo(Class cls,
 }
 
 
-static Class classFromType(const char* propertyType) {
+Class MYClassFromType(const char* propertyType) {
     size_t len = strlen(propertyType);
     if (propertyType[0] != _C_ID || propertyType[1] != '"' || propertyType[len-1] != '"')
         return NULL;
@@ -227,9 +277,9 @@ static Class classFromType(const char* propertyType) {
 + (Class) classOfProperty: (NSString*)propertyName {
     Class declaredInClass;
     const char* propertyType;
-    if (!getPropertyInfo(self, propertyName, NO, &declaredInClass, &propertyType))
+    if (!MYGetPropertyInfo(self, propertyName, NO, &declaredInClass, &propertyType))
         return Nil;
-    return classFromType(propertyType);
+    return MYClassFromType(propertyType);
 }
 
 
@@ -257,7 +307,7 @@ static Class classFromType(const char* propertyType) {
 + (IMP) impForGetterOfProperty: (NSString*)property ofType: (const char*)propertyType {
     switch (propertyType[0]) {
         case _C_ID:
-            return [self impForGetterOfProperty: property ofClass: classFromType(propertyType)];
+            return [self impForGetterOfProperty: property ofClass: MYClassFromType(propertyType)];
         case _C_INT:
         case _C_SHT:
         case _C_USHT:
@@ -270,6 +320,46 @@ static Class classFromType(const char* propertyType) {
 #else
             return (IMP)getIntProperty;
 #endif
+        case _C_UINT:
+#if USE_BLOCKS
+            return imp_implementationWithBlock(^unsigned int(MYDynamicObject* receiver) {
+                return [[receiver getValueOfProperty: property] unsignedIntValue];
+            });
+#else
+            return (IMP)getUnsignedIntProperty;
+#endif
+        case _C_LNG:
+#if USE_BLOCKS
+            return imp_implementationWithBlock(^long(MYDynamicObject* receiver) {
+                return [[receiver getValueOfProperty: property] longValue];
+            });
+#else
+            return (IMP)getLongProperty;
+#endif
+        case _C_ULNG:
+#if USE_BLOCKS
+            return imp_implementationWithBlock(^unsigned long(MYDynamicObject* receiver) {
+                return [[receiver getValueOfProperty: property] unsignedLongValue];
+            });
+#else
+            return (IMP)getUnsignedLongProperty;
+#endif
+        case _C_LNG_LNG:
+#if USE_BLOCKS
+            return imp_implementationWithBlock(^long long(MYDynamicObject* receiver) {
+                return [[receiver getValueOfProperty: property] longLongValue];
+            });
+#else
+            return (IMP)getLongLongProperty;
+#endif
+        case _C_ULNG_LNG:
+#if USE_BLOCKS
+            return imp_implementationWithBlock(^unsigned long long(MYDynamicObject* receiver) {
+                return [[receiver getValueOfProperty: property] unsignedLongLongValue];
+            });
+#else
+            return (IMP)getUnsignedLongLongProperty;
+#endif
         case _C_BOOL:
 #if USE_BLOCKS
             return imp_implementationWithBlock(^bool(MYDynamicObject* receiver) {
@@ -277,6 +367,14 @@ static Class classFromType(const char* propertyType) {
             });
 #else
             return (IMP)getBoolProperty;
+#endif
+        case _C_FLT:
+#if USE_BLOCKS
+            return imp_implementationWithBlock(^float(MYDynamicObject* receiver) {
+                return [[receiver getValueOfProperty: property] floatValue];
+            });
+#else
+            return (IMP)getFloatProperty;
 #endif
         case _C_DBL:
 #if USE_BLOCKS
@@ -287,7 +385,6 @@ static Class classFromType(const char* propertyType) {
             return (IMP)getDoubleProperty;
 #endif
         default:
-            // TODO: handle more scalar property types.
             return NULL;
     }
 }
@@ -295,7 +392,7 @@ static Class classFromType(const char* propertyType) {
 + (IMP) impForSetterOfProperty: (NSString*)property ofType: (const char*)propertyType {
     switch (propertyType[0]) {
         case _C_ID:
-            return [self impForSetterOfProperty: property ofClass: classFromType(propertyType)];
+            return [self impForSetterOfProperty: property ofClass: MYClassFromType(propertyType)];
         case _C_INT:
         case _C_SHT:
         case _C_USHT:
@@ -308,6 +405,46 @@ static Class classFromType(const char* propertyType) {
 #else
             return (IMP)setIntProperty;
 #endif
+        case _C_UINT:
+#if USE_BLOCKS
+            return imp_implementationWithBlock(^(MYDynamicObject* receiver, unsigned int value) {
+                setIdProperty(receiver, property, [NSNumber numberWithUnsignedInt: value]);
+            });
+#else
+            return (IMP)setUnsignedIntProperty;
+#endif
+        case _C_LNG:
+#if USE_BLOCKS
+            return imp_implementationWithBlock(^(MYDynamicObject* receiver, long value) {
+                setIdProperty(receiver, property, [NSNumber numberWithLong: value]);
+            });
+#else
+            return (IMP)setLongProperty;
+#endif
+        case _C_ULNG:
+#if USE_BLOCKS
+            return imp_implementationWithBlock(^(MYDynamicObject* receiver, unsigned long value) {
+                setIdProperty(receiver, property, [NSNumber numberWithUnsignedLong: value]);
+            });
+#else
+            return (IMP)setUnsignedLongProperty;
+#endif
+        case _C_LNG_LNG:
+#if USE_BLOCKS
+            return imp_implementationWithBlock(^(MYDynamicObject* receiver, long long value) {
+                setIdProperty(receiver, property, [NSNumber numberWithLongLong: value]);
+            });
+#else
+            return (IMP)setLongLongProperty;
+#endif
+        case _C_ULNG_LNG:
+#if USE_BLOCKS
+            return imp_implementationWithBlock(^(MYDynamicObject* receiver, unsigned long long value) {
+                setIdProperty(receiver, property, [NSNumber numberWithUnsignedLongLong: value]);
+            });
+#else
+            return (IMP)setUnsignedLongLongProperty;
+#endif
         case _C_BOOL:           // This is the true native C99/C++ "bool" type
 #if USE_BLOCKS
             return imp_implementationWithBlock(^(MYDynamicObject* receiver, bool value) {
@@ -315,6 +452,14 @@ static Class classFromType(const char* propertyType) {
             });
 #else
             return (IMP)setBoolProperty;
+#endif
+        case _C_FLT:
+#if USE_BLOCKS
+            return imp_implementationWithBlock(^(MYDynamicObject* receiver, float value) {
+                setIdProperty(receiver, property, [NSNumber numberWithFloat: value]);
+            });
+#else
+            return (IMP)setFloatProperty;
 #endif
         case _C_DBL:
 #if USE_BLOCKS
@@ -325,7 +470,6 @@ static Class classFromType(const char* propertyType) {
             return (IMP)setDoubleProperty;
 #endif
         default:
-            // TODO: handle more scalar property types.
             return NULL;
     }
 }
@@ -343,16 +487,19 @@ static Class classFromType(const char* propertyType) {
     
     if (isSetter(name)) {
         // choose an appropriately typed generic setter function.
-        key = setterKey(sel);
-        if (getPropertyInfo(self, key, YES, &declaredInClass, &propertyType)) {
-            strcpy(signature, "v@: ");
-            signature[3] = propertyType[0];
-            accessor = [self impForSetterOfProperty: key ofType: propertyType];
+        for (int upperCase=NO; upperCase<=YES; upperCase++) {
+            key = setterKey(sel, (BOOL)upperCase);
+            if (MYGetPropertyInfo(self, key, YES, &declaredInClass, &propertyType)) {
+                strcpy(signature, "v@: ");
+                signature[3] = propertyType[0];
+                accessor = [self impForSetterOfProperty: key ofType: propertyType];
+                break;
+            }
         }
     } else if (isGetter(name)) {
         // choose an appropriately typed getter function.
         key = getterKey(sel);
-        if (getPropertyInfo(self, key, NO, &declaredInClass, &propertyType)) {
+        if (MYGetPropertyInfo(self, key, NO, &declaredInClass, &propertyType)) {
             strcpy(signature, " @:");
             signature[0] = propertyType[0];
             accessor = [self impForGetterOfProperty: key ofType: propertyType];

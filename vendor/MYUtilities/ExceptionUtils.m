@@ -3,7 +3,7 @@
 //  MYUtilities
 //
 //  Created by Jens Alfke on 1/5/08.
-//  Copyright 2008 Jens Alfke. All rights reserved.
+//  Copyright 2008-2013 Jens Alfke. All rights reserved.
 //  See BSD license at bottom of file.
 //
 
@@ -132,10 +132,10 @@ static void report( NSException *x ) {
 {
     NSString *stack = [x my_callStack] ?:@"";
     NSInteger r = NSRunCriticalAlertPanel( @"Internal Error!",
-                            [NSString stringWithFormat: @"Uncaught exception: %@\n%@\n\n%@\n\n"
-                             "Please report this bug (you can copy & paste the text).",
-                             [x name], [x reason], stack],
-                            @"Continue",@"Quit",nil);
+                                          @"Uncaught exception: %@\n%@\n\n%@\n\n"
+                                          "Please report this bug (you can copy & paste the text).",
+                                          @"Continue",@"Quit",nil,
+                                          [x name], [x reason], stack);
     if( r == NSAlertAlternateReturn )
         exit(1);
     MYSetExceptionReporter(&report);
@@ -174,7 +174,7 @@ BOOL IsGDBAttached( void )
 
 
 /*
- Copyright (c) 2008, Jens Alfke <jens@mooseyard.com>. All rights reserved.
+ Copyright (c) 2008-2013, Jens Alfke <jens@mooseyard.com>. All rights reserved.
  
  Redistribution and use in source and binary forms, with or without modification, are permitted
  provided that the following conditions are met:

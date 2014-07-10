@@ -3,7 +3,7 @@
 //  MYUtilities
 //
 //  Created by Jens Alfke on 1/5/08.
-//  Copyright 2008 Jens Alfke. All rights reserved.
+//  Copyright 2008-2013 Jens Alfke. All rights reserved.
 //
 
 #import <Foundation/Foundation.h>
@@ -58,6 +58,16 @@ BOOL kvSetSet( id owner, NSString *property, NSMutableSet *set, NSSet *newSet );
 BOOL kvAddToSet( id owner, NSString *property, NSMutableSet *set, id objToAdd );
 BOOL kvRemoveFromSet( id owner, NSString *property, NSMutableSet *set, id objToRemove );
 
+#if __has_feature(objc_arc)
+#  define MYRelease(OBJ) ((void)(OBJ))
+#  define MYAutorelease(OBJ) (OBJ)
+#  define MYRetain(OBJ) (OBJ)
+#else
+#  define MYRelease(OBJ) [(OBJ) release]
+#  define MYAutorelease(OBJ) [(OBJ) autorelease]
+#  define MYRetain(OBJ) [(OBJ) retain]
+#endif
+
 // Use this to prevent an object from being dealloced in this scope, even if you call something
 // that releases it.
 #if __has_feature(objc_arc)
@@ -86,6 +96,12 @@ BOOL kvRemoveFromSet( id owner, NSString *property, NSMutableSet *set, id objToR
 @end
 
 #if NS_BLOCKS_AVAILABLE
+@interface NSMutableArray (MYUtils)
+- (void) my_removeMatching: (int (^)(id obj))block;
+@end
+#endif
+
+#if NS_BLOCKS_AVAILABLE && MY_ENABLE_ENUMERATOR_MAP
 @interface NSEnumerator (MYUtils)
 - (NSEnumerator*) my_map: (id (^)(id obj))block;
 @end

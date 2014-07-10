@@ -3,7 +3,7 @@
 //  MYUtilities
 //
 //  Created by Jens Alfke on 1/5/08.
-//  Copyright 2008 Jens Alfke. All rights reserved.
+//  Copyright 2008-2013 Jens Alfke. All rights reserved.
 //
 
 #import <Foundation/Foundation.h>
@@ -15,7 +15,8 @@
     This function is a no-op if the DEBUG macro is not defined (i.e. in a release build).
     At runtime, to cause a particular test "X" to run, add a command-line argument "Test_X".
     To run all tests, add the argument "Test_All".
-    To run only tests without starting the main program, add the argument "Test_Only". */
+    To run only tests without starting the main program, add the argument "Test_Only".
+    To generate a JUnit-compatible XML report file "test_report.xml", add "Test_Report. */
 #if DEBUG
 void RunTestCases( int argc, const char **argv );
 extern BOOL gRunningTestCase;
@@ -59,34 +60,72 @@ void _RequireTestCase( const char *name );
 /** General-purpose assertions, replacing NSAssert etc.. You can use these outside test cases. */
 
 #define Assert(COND,MSG...)    do{ if( __builtin_expect(!(COND),NO) ) { \
-                                    _AssertFailed(self,_cmd, __FILE__, __LINE__,\
-                                                        #COND,##MSG,NULL); } }while(0)
-#define CAssert(COND,MSG...)    do{ if( __builtin_expect(!(COND),NO) ) { \
-                                    static const char *_name = __PRETTY_FUNCTION__;\
-                                    _AssertFailed(nil, _name, __FILE__, __LINE__,\
+                                    _AssertFailed(__func__, __FILE__, __LINE__,\
                                                         #COND,##MSG,NULL); } }while(0)
 
 // AssertEqual is for Obj-C objects
-#define AssertEqual(VAL,EXPECTED)   do{ id _val = VAL, _expected = EXPECTED;\
-                                        Assert(_val==_expected || [_val isEqual: _expected], @"Unexpected value for %s: %@ (expected %@)", #VAL,_val,_expected); \
-                                    }while(0)
-#define CAssertEqual(VAL,EXPECTED)  do{ id _val = (VAL), _expected = (EXPECTED);\
-                                        CAssert(_val==_expected || [_val isEqual: _expected], @"Unexpected value for %s: %@ (expected %@)", #VAL,_val,_expected); \
-                                    }while(0)
+#define AssertEqual(VAL,EXPECTED)   _AssertEqual((VAL),(EXPECTED), #VAL, __func__, __FILE__, __LINE__)
 
 // AssertEq is for scalars (int, float...)
 #define AssertEq(VAL,EXPECTED)  do{ __typeof(VAL) _val = VAL; __typeof(EXPECTED) _expected = EXPECTED;\
                                     Assert(_val==_expected, @"Unexpected value for %s: %@ (expected %@)", #VAL,$object(_val),$object(_expected)); \
                                 }while(0)
-#define CAssertEq(VAL,EXPECTED) do{ __typeof(VAL) _val = VAL; __typeof(EXPECTED) _expected = EXPECTED;\
-                                    CAssert(_val==_expected, @"Unexpected value for %s: %@ (expected %@)", #VAL,$object(_val),$object(_expected)); \
-                                }while(0)
+#define AssertAlmostEq(N1,N2, TOL) CAssert(fabs((N1) - (N2)) < (TOL), \
+@"Got %.9f, expected %.9f", (N1), (N2));
 
-#define AssertNil(VAL)          AssertEq((VAL),nil)
-#define CAssertNil(VAL)         CAssertEq((VAL),(id)nil)  // ARC is picky about the type of nil here
-#define CAssertNull(VAL)        CAssertEq((VAL),NULL)
+#define AssertNil(VAL)          AssertEq((VAL),(id)nil)
+#define AssertNull(VAL)         AssertEq((VAL),NULL)
 
 #define AssertAbstractMethod()  _AssertAbstractMethodFailed(self,_cmd);
+
+// These were for use in functions; not necessary anymore
+#define CAssert Assert
+#define CAssertEqual AssertEqual
+#define CAssertEq AssertEq
+#define CAssertNil AssertNil
+#define CAssertNull AssertNull
+
+
+// Returns a string summarizing why a and b are not equal; or nil if they are equal.
+// Descends into NSArrays and NSDictionaries to identify mismatched items.
+// Considers NSNumbers equal if the difference is small enough to be rounding error.
+NSString* WhyUnequalObjects(id a, id b);
+
+
+/** Simple test-coverage helpers:
+    The Cover() macro verifies that both sides of an if(), or the body of a while(),
+    are exercised during a test. Just wrap Cover(...) around the condition being tested,
+    and during testing a warning will be logged if that instance of Cover() is called with
+    only a true or only a false value. (Unfortunately it can't detect if the Cover() call
+    isn't reached at all.)
+    In order for this to work you need to add a TestedBy(TestName) call at the start of the
+    function/method, where TestName is the name of the TestCase function that should be
+    providing the code coverage.
+    Example:
+        - (void) foo {
+            TestedBy(FooTest);
+            if (Cover(someCondition())) { ... } else { ... }
+        }
+    After FooTest completes, a warning will be logged if someCondition() was only true or only
+    false during that Cover call.
+ 
+    To make this less obtrusive, you might want to do something like
+        #define ifc(COND) if(Cover(COND))
+*/
+
+#if DEBUG
+#define TestedBy(TEST_NAME) static const char* __unused kTestedBy = #TEST_NAME; \
+            extern void Test_##TEST_NAME(void); __unused void* x = &Test_##TEST_NAME
+#define Cover(CONDITION) ({ \
+    BOOL _b=!!(CONDITION); \
+    if (__builtin_expect(gRunningTestCase,NO)) \
+        _Cover(__FILE__, __LINE__, kTestedBy, #CONDITION, _b); \
+    _b;})
+#else
+#define TestedBy(TEST_NAME)
+#define Cover(CONDITION) (CONDITION)
+#endif
+
 
 // Nasty internals ...
 #if DEBUG
@@ -95,6 +134,9 @@ void _RunTestCase( void (*testptr)(), const char *name );
 struct TestCaseLink {void (*testptr)(); const char *name; BOOL passed; struct TestCaseLink *next;};
 extern struct TestCaseLink *gAllTestCases;
 #endif // DEBUG
-void _AssertFailed( id rcvr, const void *selOrFn, const char *sourceFile, int sourceLine,
+void _AssertEqual(id val, id expected, const char* valExpr,
+                  const char* selOrFn, const char* sourceFile, int sourceLine);
+void _AssertFailed(const void *selOrFn, const char *sourceFile, int sourceLine,
                    const char *condString, NSString *message, ... ) __attribute__((noreturn));
 void _AssertAbstractMethodFailed( id rcvr, SEL cmd) __attribute__((noreturn));
+BOOL _Cover(const char *sourceFile, int sourceLine, const char*testName, const char *testSource, BOOL whichWay);

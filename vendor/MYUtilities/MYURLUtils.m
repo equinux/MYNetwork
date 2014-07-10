@@ -3,18 +3,20 @@
 //  MYUtilities
 //
 //  Created by Jens Alfke on 5/15/12.
-//  Copyright (c) 2012 Couchbase, Inc. All rights reserved.
+//  Copyright (c) 2012 Jens Alfke. All rights reserved.
 //
 
 #import "MYURLUtils.h"
+#import "Test.h"
 
 
 @implementation NSURL (MYUtilities)
 
 
 - (UInt16) my_effectivePort {
+    TestedBy(MYURLUtils);
     NSNumber* portObj = self.port;
-    if (portObj)
+    if (Cover(portObj))
         return portObj.unsignedShortValue;
     return self.my_isHTTPS ? 443 : 80;
 }
@@ -22,6 +24,21 @@
 
 - (BOOL) my_isHTTPS {
     return (0 == [self.scheme caseInsensitiveCompare: @"https"]);
+}
+
+
+- (NSURL*) my_baseURL {
+    TestedBy(MYURLUtils);
+    NSString* scheme = self.scheme.lowercaseString;
+    NSMutableString* str = [NSMutableString stringWithFormat: @"%@://%@",
+                            scheme, self.host.lowercaseString];
+    NSNumber* port = self.port;
+    if (Cover(port)) {
+        int defaultPort = [scheme isEqualToString: @"https"] ? 443 : 80;
+        if (Cover(port.intValue != defaultPort))
+            [str appendFormat: @":%@", port];
+    }
+    return [NSURL URLWithString: str];
 }
 
 
@@ -36,13 +53,14 @@
 
 
 - (NSURL*) my_URLByRemovingUser {
+    TestedBy(MYURLUtils);
     CFRange userRange, userPlusDelimRange, passPlusDelimRange;
     userRange = CFURLGetByteRangeForComponent((CFURLRef)self, kCFURLComponentUser, &userPlusDelimRange);
     CFURLGetByteRangeForComponent((CFURLRef)self, kCFURLComponentPassword, &passPlusDelimRange);
-    if (userRange.length == 0)
+    if (Cover(userRange.length == 0))
         return self;
     CFIndex delEnd;
-    if (passPlusDelimRange.length == 0)
+    if (Cover(passPlusDelimRange.length == 0))
         delEnd = userPlusDelimRange.location + userPlusDelimRange.length;
     else
         delEnd = passPlusDelimRange.location+passPlusDelimRange.length;
@@ -97,9 +115,26 @@
 }
 
 
+- (NSDictionary*) my_proxySettings {
+    CFDictionaryRef proxySettings = CFNetworkCopySystemProxySettings();
+    if (!proxySettings)
+        return nil;
+    NSArray* proxies = CFBridgingRelease(CFNetworkCopyProxiesForURL((__bridge CFURLRef)self,
+                                                                    proxySettings));
+    CFRelease(proxySettings);
+    if (proxies.count == 0)
+        return nil;
+    NSDictionary* proxy = proxies[0];
+    if ($equal(proxy[(id)kCFProxyTypeKey], (id)kCFProxyTypeNone))
+        return nil;
+    return proxy;
+}
+
+
 - (NSString*) my_sanitizedString {
+    TestedBy(MYURLUtils);
     CFRange passRange = CFURLGetByteRangeForComponent((CFURLRef)self, kCFURLComponentPassword, NULL);
-    if (passRange.length == 0)
+    if (Cover(passRange.length == 0))
         return self.absoluteString;
     NSUInteger passEnd = passRange.location + passRange.length;
 
@@ -125,11 +160,27 @@
 
 TestCase(MYURLUtils) {
     NSURL* url = $url(@"https://example.com/path/here?query#fragment");
+    CAssertEq(url.my_effectivePort, 443);
+    CAssertEqual(url.my_baseURL, $url(@"https://example.com"));
     CAssertEqual(url.my_URLByRemovingUser, url);
     CAssertEqual(url.my_sanitizedString, @"https://example.com/path/here?query#fragment");
+
+    url = $url(@"https://example.com:8080/path/here?query#fragment");
+    CAssertEq(url.my_effectivePort, 8080);
+    CAssertEqual(url.my_baseURL, $url(@"https://example.com:8080"));
+    CAssertEqual(url.my_URLByRemovingUser, url);
+    CAssertEqual(url.my_sanitizedString, @"https://example.com:8080/path/here?query#fragment");
+
+    CAssertEqual($url(@"http://example.com:80/path/here?query#fragment").my_baseURL,
+                 $url(@"http://example.com"));
+    CAssertEq($url(@"http://example.com:80/path/here?query#fragment").my_effectivePort, 80);
+    CAssertEqual($url(@"https://example.com:443/path/here?query#fragment").my_baseURL,
+                 $url(@"https://example.com"));
+
     url = $url(@"https://bob@example.com/path/here?query#fragment");
     CAssertEqual(url.my_URLByRemovingUser, $url(@"https://example.com/path/here?query#fragment"));
     CAssertEqual(url.my_sanitizedString, @"https://bob@example.com/path/here?query#fragment");
+
     url = $url(@"https://bob:foo@example.com/path/here?query#fragment");
     CAssertEqual(url.my_URLByRemovingUser, $url(@"https://example.com/path/here?query#fragment"));
     CAssertEqual(url.my_sanitizedString, @"https://bob:*****@example.com/path/here?query#fragment");

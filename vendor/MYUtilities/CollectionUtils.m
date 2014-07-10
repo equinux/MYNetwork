@@ -3,7 +3,7 @@
 //  MYUtilities
 //
 //  Created by Jens Alfke on 1/5/08.
-//  Copyright 2008 Jens Alfke. All rights reserved.
+//  Copyright 2008-2013 Jens Alfke. All rights reserved.
 //
 
 #import "CollectionUtils.h"
@@ -279,6 +279,16 @@ BOOL kvRemoveFromSet( id owner, NSString *property, NSMutableSet *set, id objToR
 @end
 
 
+@implementation NSString (MYUtils)
+
+- (NSString*) my_compactDescription
+{
+    return $sprintf(@"\"%@\"", self);
+}
+
+@end
+
+
 @implementation NSArray (MYUtils)
 
 - (BOOL) my_containsObjectIdenticalTo: (id)object
@@ -349,6 +359,21 @@ BOOL kvRemoveFromSet( id owner, NSString *property, NSMutableSet *set, id objToR
 
 
 
+#if NS_BLOCKS_AVAILABLE
+@implementation NSMutableArray (MYUtils)
+
+- (void) my_removeMatching: (int (^)(id obj))block {
+    for (NSInteger i = self.count - 1; i >= 0; --i) {
+        if (!block([self objectAtIndex: i]))
+            [self removeObjectAtIndex: i];
+    }
+}
+
+@end
+#endif
+
+
+
 
 @implementation NSSet (MYUtils)
 
@@ -412,8 +437,8 @@ BOOL kvRemoveFromSet( id owner, NSString *property, NSMutableSet *set, id objToR
         else
             [desc appendString: @", "];
         id value = [self objectForKey: key];
-        [desc appendString: [key description]];
-        [desc appendString: @"= "];
+        [desc appendString: [key my_compactDescription]];
+        [desc appendString: @": "];
         [desc appendString: [value my_compactDescription]];
     }
     [desc appendString: @"}"];
@@ -447,6 +472,7 @@ BOOL kvRemoveFromSet( id owner, NSString *property, NSMutableSet *set, id objToR
 @end
 
 
+#if NS_BLOCKS_AVAILABLE && MY_ENABLE_ENUMERATOR_MAP
 @interface MYMappedEnumerator : NSEnumerator
 {
     NSEnumerator* _source;
@@ -493,7 +519,7 @@ BOOL kvRemoveFromSet( id owner, NSString *property, NSMutableSet *set, id objToR
 }
 
 @end
-
+#endif // NS_BLOCKS_AVAILABLE && MY_ENABLE_ENUMERATOR_MAP
 
 
 
@@ -526,17 +552,19 @@ TestCase(CollectionUtils) {
                         @"a C string",                                  @"cstr",
                         nil];
     CAssertEqual(d,dd);
-    
+
+#if NS_BLOCKS_AVAILABLE && MY_ENABLE_ENUMERATOR_MAP
     NSEnumerator* source = [$array(@"teenage", @"mutant", @"ninja", @"turtles") objectEnumerator];
     NSEnumerator* mapped = [source my_map: ^id(NSString* str) {
         return [str hasPrefix: @"t"] ? [str uppercaseString] : nil;
     }];
     CAssertEqual(mapped.allObjects, $array(@"TEENAGE", @"TURTLES"));
+#endif
 }
 
 
 /*
- Copyright (c) 2008, Jens Alfke <jens@mooseyard.com>. All rights reserved.
+ Copyright (c) 2008-2013, Jens Alfke <jens@mooseyard.com>. All rights reserved.
  
  Redistribution and use in source and binary forms, with or without modification, are permitted
  provided that the following conditions are met:
