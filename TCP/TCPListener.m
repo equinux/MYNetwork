@@ -27,6 +27,36 @@
 static void TCPListenerAcceptCallBack(CFSocketRef socket, CFSocketCallBackType type, 
                                       CFDataRef address, const void *data, void *info);
 
+@interface NSThread (BlocksAdditions)
+
+- (void)performBlock:(void (^)())block;
+
+@end
+@implementation NSThread (BlocksAdditions)
+
+- (void)performBlock:(void (^)())block
+{
+  if ([[NSThread currentThread] isEqual:self])
+    block();
+  else
+    [self performBlock:block waitUntilDone:NO];
+}
+
+- (void)performBlock:(void (^)())block waitUntilDone:(BOOL)wait
+{
+  [NSThread performSelector:@selector(ng_runBlock:)
+    onThread:self
+    withObject:[block copy]
+    waitUntilDone:wait];
+}
+
++ (void)ng_runBlock:(void (^)())block
+{
+  block();
+}
+
+@end
+
 @interface TCPListener()
 - (void) _openBonjour;
 - (void) _closeBonjour;
@@ -57,6 +87,8 @@ static void TCPListenerAcceptCallBack(CFSocketRef socket, CFSocketCallBackType t
     NSInteger /*NSNetServicesError*/ _bonjourError;
 
     Class __strong _connectionClass;
+  
+    NSThread *_tcpThread;
 }
 
 
@@ -72,6 +104,7 @@ static void TCPListenerAcceptCallBack(CFSocketRef socket, CFSocketCallBackType t
     if (self != nil) {
         _port = port;
         _connectionClass = [TCPConnection class];
+        _tcpThread = [NSThread currentThread];
     }
     return self;
 }
@@ -204,11 +237,12 @@ static CFSocketRef closeSocket( CFSocketRef socket ) {
             return NO;
         }
     }
-    
+  
     [self _openBonjour];
 
     LogTo(TCP,@"%@ is open",self);
     [self tellDelegate: @selector(listenerDidOpen:) withObject: nil];
+  
     return YES;
 }
 
@@ -302,7 +336,7 @@ static void TCPListenerAcceptCallBack(CFSocketRef socket, CFSocketCallBackType t
                 [self _updateTXTRecord];
             #if TARGET_OS_IPHONE
             if (iOS_SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"7.0"))
-              [_netService setIncludesPeerToPeer:_bonjourIncludesPeerToPeer];
+              [_netService setIncludesPeerToPeer: _bonjourIncludesPeerToPeer];
             #endif
             [_netService publishWithOptions: _bonjourServiceOptions];
         } else {
@@ -329,9 +363,12 @@ static void TCPListenerAcceptCallBack(CFSocketRef socket, CFSocketCallBackType t
 - (void) setBonjourServiceName: (NSString*)name
 {
     if( ! $equal(name,_bonjourServiceName) ) {
-        [self _closeBonjour];
-         _bonjourServiceName = name;
-        [self _openBonjour];
+      
+        _bonjourServiceName = name;
+        if (self.isOpen && _netService) {
+          [self _closeBonjour];
+          [self _openBonjour];
+        }
     }
 }
 
@@ -376,8 +413,13 @@ static void TCPListenerAcceptCallBack(CFSocketRef socket, CFSocketCallBackType t
 
 - (void)netServiceWillPublish:(NSNetService *)sender
 {
-    LogTo(TCP,@"%@: Advertising %@",self,sender);
-    self.bonjourPublished = YES;
+    LogTo(TCP,@"%@: Will start advertising %@",self,sender);
+}
+
+- (void)netServiceDidPublish:(NSNetService *)sender
+{
+  self.bonjourPublished = YES;
+  LogTo(TCP,@"%@: Did start advertising %@ on port %u",self,sender, _port);
 }
 
 - (void)netService:(NSNetService *)sender didNotPublish:(NSDictionary *)errorDict
@@ -385,6 +427,7 @@ static void TCPListenerAcceptCallBack(CFSocketRef socket, CFSocketCallBackType t
     self.bonjourError = [errorDict[NSNetServicesErrorCode] intValue];
     LogTo(TCP,@"%@: Failed to advertise %@: error %li",self,sender,(long)self.bonjourError);
     _netService = nil;
+    self.bonjourPublished = NO;
 }
 
 - (void)netServiceDidStop:(NSNetService *)sender
@@ -408,19 +451,24 @@ static void TCPListenerAcceptCallBack(CFSocketRef socket, CFSocketCallBackType t
     }
   
     Assert(_connectionClass);
-    TCPConnection *conn = [[self.connectionClass alloc] initIncomingFromInputStream: inputStream
-                                                                       outputStream: outputStream
-                                                                           listener: self];
-  
-    if( ! conn )
-        return;
+
+    // All new connections should be run on the same networking thread
+    [_tcpThread performBlock:^{
+      TCPConnection *conn = [[self.connectionClass alloc]
+          initIncomingFromInputStream: inputStream
+          outputStream: outputStream
+          listener: self];
     
-    if( _sslProperties ) {
-        conn.SSLProperties = _sslProperties;
-        [conn setSSLProperty: $true forKey: (id)kCFStreamSSLIsServer];
-    }
-    [conn open];
-    [self tellDelegate: @selector(listener:didAcceptConnection:) withObject: conn];
+      if( ! conn )
+          return;
+      
+      if( _sslProperties ) {
+          conn.SSLProperties = _sslProperties;
+          [conn setSSLProperty: $true forKey: (id)kCFStreamSSLIsServer];
+      }
+      [conn open];
+      [self tellDelegate: @selector(listener:didAcceptConnection:) withObject: conn];
+    }];
 }
 
 @end

@@ -32,7 +32,6 @@ enum{
 
 NSString* const TCPErrorDomain = @"TCP";
 
-
 @interface TCPConnection ()
 @property TCPConnectionStatus status;
 @property (strong) IPAddress *address;
@@ -45,6 +44,7 @@ NSString* const TCPErrorDomain = @"TCP";
 {
     TCPListener *_server;
     IPAddress *_address;
+    NSNetService *_netService;
     BOOL _isIncoming, _checkedPeerCert;
     TCPConnectionStatus _status;
     TCPReader *_reader;
@@ -107,6 +107,7 @@ static NSMutableArray *sAllConnections;
         input = nil;
         output = nil;
     }
+    _netService = service;
     return [self _initWithAddress: address inputStream: input outputStream: output];
 }
 
@@ -160,7 +161,7 @@ static NSMutableArray *sAllConnections;
 
 - (NSString*) description
 {
-    return $sprintf(@"%@[%@ %@]",self.class,(_isIncoming ?@"from" :@"to"),_address);
+    return $sprintf(@"%@[%@ %@]",self.class,(_isIncoming ?@"from" :@"to"),(_address ? _address : _netService) );
 }
 
 
