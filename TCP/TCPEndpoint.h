@@ -23,9 +23,9 @@
     validation chain. */
 #define kTCPPropertySSLCertificates  ((NSString*)kCFStreamSSLCertificates)
 
-/** If set to YES, the connection will accept self-signed certificates from the peer,
+/** If set to NO, the connection will accept self-signed certificates from the peer,
     or any certificate chain that terminates in an unrecognized root. */
-#define kTCPPropertySSLAllowsAnyRoot ((NSString*)kCFStreamSSLAllowsAnyRoot)
+#define kTCPPropertySSLValidatesCertificateChain ((NSString*)kCFStreamSSLValidatesCertificateChain)
 
 /** This sets the hostname that the peer's certificate must have.
     (The default value is the hostname, if any, that the connection was opened with.)
