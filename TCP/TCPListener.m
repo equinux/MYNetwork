@@ -24,6 +24,8 @@
 #define __has_feature(x) 0 // Compatibility with non-clang compilers.
 #endif
 
+#define kMaxBonjourPublishRetryCount 3
+
 static void TCPListenerAcceptCallBack(CFSocketRef socket, CFSocketCallBackType type, 
                                       CFDataRef address, const void *data, void *info);
 
@@ -62,6 +64,7 @@ static void TCPListenerAcceptCallBack(CFSocketRef socket, CFSocketCallBackType t
 - (void) _closeBonjour;
 @property BOOL bonjourPublished;
 @property NSInteger bonjourError;
+@property NSUInteger bonjourPublishRetryCount;
 - (void) _updateTXTRecord;
 #if __has_feature(attribute_cf_returns_retained)
 - (CFSocketRef) _openProtocol: (SInt32) protocolFamily 
@@ -254,7 +257,7 @@ static CFSocketRef closeSocket( CFSocketRef socket ) {
 
 - (void) close 
 {
-    if( _ipv4socket ) {
+    if( _ipv4socket || _ipv6socket ) {
         [self _closeBonjour];
         _ipv4socket = closeSocket(_ipv4socket);
         _ipv6socket = closeSocket(_ipv6socket);
@@ -267,7 +270,7 @@ static CFSocketRef closeSocket( CFSocketRef socket ) {
 
 - (BOOL) isOpen
 {
-    return _ipv4socket != NULL;
+    return (_ipv4socket != NULL && CFSocketIsValid(_ipv4socket));
 }
 
 
@@ -416,18 +419,37 @@ static void TCPListenerAcceptCallBack(CFSocketRef socket, CFSocketCallBackType t
     LogTo(TCP,@"%@: Will start advertising %@",self,sender);
 }
 
-- (void)netServiceDidPublish:(NSNetService *)sender
-{
-  self.bonjourPublished = YES;
-  LogTo(TCP,@"%@: Did start advertising %@ on port %u",self,sender, _port);
-}
-
 - (void)netService:(NSNetService *)sender didNotPublish:(NSDictionary *)errorDict
 {
     self.bonjourError = [errorDict[NSNetServicesErrorCode] intValue];
     LogTo(TCP,@"%@: Failed to advertise %@: error %li",self,sender,(long)self.bonjourError);
-    _netService = nil;
-    self.bonjourPublished = NO;
+    if (++_bonjourPublishRetryCount < kMaxBonjourPublishRetryCount) {
+      LogTo(TCP,@"%@: Retrying %lu/%i",self,(unsigned long)_bonjourPublishRetryCount, kMaxBonjourPublishRetryCount);
+      [_tcpThread performBlock:^{
+        // Something went wrong, we try to close and re-open the connection.
+        [self close];
+        [self open];
+      }];
+    } else {
+      // Retries did not work, giving up...
+      _bonjourPublishRetryCount = 0;
+      _netService = nil;
+      self.bonjourPublished = NO;
+      if( [_delegate respondsToSelector: @selector(listener:failedToAnnounce:)]) {
+          NSError *error = [NSError
+            errorWithDomain:errorDict[NSNetServicesErrorDomain]
+            code:[errorDict[NSNetServicesErrorCode] intValue]
+            userInfo:nil];
+          [_delegate listener: self failedToAnnounce: error];
+      }
+    }
+}
+
+- (void)netServiceDidPublish:(NSNetService *)sender
+{
+  self.bonjourPublished = YES;
+  _bonjourPublishRetryCount = 0;
+  LogTo(TCP,@"%@: Did start advertising %@ on port %u",self,sender, _port);
 }
 
 - (void)netServiceDidStop:(NSNetService *)sender

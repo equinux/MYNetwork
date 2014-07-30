@@ -120,6 +120,8 @@
 - (void) listenerDidOpen: (TCPListener*)listener;
 /** Called if the listener fails to open due to an error. */
 - (void) listener: (TCPListener*)listener failedToOpen: (NSError*)error;
+/** Called if the listeners bonjour service fails to announce due to an error. */
+- (void) listener:(TCPListener *)listener failedToAnnounce: (NSError *)error;
 /** Called after the listener closes. */
 - (void) listenerDidClose: (TCPListener*)listener;
 /** Called when an incoming connection request arrives, but before the conncetion is opened;

@@ -81,7 +81,15 @@ static NSMutableArray *sAllConnections = NULL;
         _address = [address copy];
         _reader = [[[self readerClass] alloc] initWithConnection: self stream: input];
         _writer = [[[self writerClass] alloc] initWithConnection: self stream: output];
-        LogTo(TCP,@"%@ initialized, address=%@",self,address);
+      
+        if (!_reader || !_writer) {
+            LogTo(TCP,@"Failed to create %@: addr=%@, reader=%@, writer=%@",
+                  self.class,address,_reader,_writer);
+            return nil;
+        }
+      
+        LogTo(TCP,@"%@ initialized, address=%@, reader=%@, writer=%@",
+              self,address,_reader,_writer);
     }
     return self;
 }
